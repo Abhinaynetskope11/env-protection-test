@@ -1,0 +1,21 @@
+name: Environment protection test
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: protection-test
+    steps:
+      - name: Report context
+        run: |
+          echo "ref:   ${{ github.ref_name }}"
+          echo "actor: ${{ github.actor }}"
+      - name: Check environment secret
+        env:
+          TEST_SECRET: ${{ secrets.TEST_SECRET }}
+        run: |
+          if [ -n "$TEST_SECRET" ]; then echo "TEST_SECRET is set (${#TEST_SECRET} chars)"; else echo "TEST_SECRET is empty"; fi
