@@ -8,23 +8,26 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: protection-test
+    # main deploys to production (protected); every other branch uses the open sandbox environment
+    environment: ${{ github.ref_name == 'main' && 'production' || 'sandbox' }}
     steps:
       - name: Report context
         run: |
-          echo "ref:   ${{ github.ref_name }}"
-          echo "actor: ${{ github.actor }}"
-      - name: Check environment secret
+          echo "ref:         ${{ github.ref_name }}"
+          echo "actor:       ${{ github.actor }}"
+          echo "environment: ${{ github.ref_name == 'main' && 'production' || 'sandbox' }}"
+      - name: Authenticate to sandbox
+        if: github.ref_name != 'main'
         env:
-          TEST_SECRET: ${{ secrets.TEST_SECRET }}
-        run: |
-          if [ -n "$TEST_SECRET" ]; then echo "TEST_SECRET is set (${#TEST_SECRET} chars)"; else echo "TEST_SECRET is empty"; fi
-      - name: Authenticate to abhinaydev sandbox
-        env:
-          ABHINAYDEV_INTEGRATION_URL: ${{ secrets.ABHINAYDEV_INTEGRATION_URL }}
+          SFDX_AUTH_URL: ${{ secrets.SFDX_AUTH_URL }}
         run: |
           npm install --global @salesforce/cli
-          echo "$ABHINAYDEV_INTEGRATION_URL" > "$RUNNER_TEMP/auth.txt"
-          sf org login sfdx-url --sfdx-url-file "$RUNNER_TEMP/auth.txt" --alias abhinaydev --set-default >/dev/null
+          echo "$SFDX_AUTH_URL" > "$RUNNER_TEMP/auth.txt"
+          sf org login sfdx-url --sfdx-url-file "$RUNNER_TEMP/auth.txt" --alias target --set-default >/dev/null
           rm -f "$RUNNER_TEMP/auth.txt"
           echo "connectedStatus: $(sf org display --json | jq -r .result.connectedStatus)"
+      - name: Production deploy placeholder
+        if: github.ref_name == 'main'
+        env:
+          SFDX_AUTH_URL: ${{ secrets.SFDX_AUTH_URL }}
+        run: echo "Would deploy to production (secret length ${#SFDX_AUTH_URL})"
