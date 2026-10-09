@@ -19,3 +19,12 @@ jobs:
           TEST_SECRET: ${{ secrets.TEST_SECRET }}
         run: |
           if [ -n "$TEST_SECRET" ]; then echo "TEST_SECRET is set (${#TEST_SECRET} chars)"; else echo "TEST_SECRET is empty"; fi
+      - name: Authenticate to abhinaydev sandbox
+        env:
+          ABHINAYDEV_INTEGRATION_URL: ${{ secrets.ABHINAYDEV_INTEGRATION_URL }}
+        run: |
+          npm install --global @salesforce/cli
+          echo "$ABHINAYDEV_INTEGRATION_URL" > "$RUNNER_TEMP/auth.txt"
+          sf org login sfdx-url --sfdx-url-file "$RUNNER_TEMP/auth.txt" --alias abhinaydev --set-default >/dev/null
+          rm -f "$RUNNER_TEMP/auth.txt"
+          echo "connectedStatus: $(sf org display --json | jq -r .result.connectedStatus)"
