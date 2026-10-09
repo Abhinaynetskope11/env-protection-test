@@ -1,0 +1,18 @@
+name: Enforce release branch
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  enforce-release-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Only release/* branches may be merged into main
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          case "$HEAD_REF" in
+            release/*) echo "OK: '$HEAD_REF' may be merged into main" ;;
+            *) echo "::error::'$HEAD_REF' cannot be merged into main. Only release/* branches are allowed."; exit 1 ;;
+          esac
