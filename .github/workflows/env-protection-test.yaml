@@ -5,19 +5,22 @@ on:
     branches: ["**"]
   workflow_dispatch: {}
 
+env:
+  # main deploys to production (protected); every other branch uses the open sandbox environment
+  TARGET_ENV: ${{ github.ref_name == 'main' && 'production' || 'sandbox' }}
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # main deploys to production (protected); every other branch uses the open sandbox environment
     environment: ${{ github.ref_name == 'main' && 'production' || 'sandbox' }}
     steps:
+      - uses: actions/checkout@v4
       - name: Report context
         run: |
           echo "ref:         ${{ github.ref_name }}"
           echo "actor:       ${{ github.actor }}"
-          echo "environment: ${{ github.ref_name == 'main' && 'production' || 'sandbox' }}"
-      - name: Authenticate to sandbox
-        if: github.ref_name != 'main'
+          echo "environment: $TARGET_ENV"
+      - name: Authenticate to Salesforce
         env:
           SFDX_AUTH_URL: ${{ secrets.SFDX_AUTH_URL }}
         run: |
@@ -26,8 +29,9 @@ jobs:
           sf org login sfdx-url --sfdx-url-file "$RUNNER_TEMP/auth.txt" --alias target --set-default >/dev/null
           rm -f "$RUNNER_TEMP/auth.txt"
           echo "connectedStatus: $(sf org display --json | jq -r .result.connectedStatus)"
-      - name: Production deploy placeholder
-        if: github.ref_name == 'main'
-        env:
-          SFDX_AUTH_URL: ${{ secrets.SFDX_AUTH_URL }}
-        run: echo "Would deploy to production (secret length ${#SFDX_AUTH_URL})"
+      - name: Deploy metadata (sandbox)
+        if: env.TARGET_ENV == 'sandbox'
+        run: sf project deploy start --source-dir force-app --test-level NoTestRun --wait 10
+      - name: Validate metadata only (production, check-only)
+        if: env.TARGET_ENV == 'production'
+        run: sf project deploy start --source-dir force-app --dry-run --test-level NoTestRun --wait 10
